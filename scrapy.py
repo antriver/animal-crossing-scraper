@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import requests, io
 from util import separateByBr, avaiConverter, getPriceWithBellsString, getImageLinks, dumpData
 
-URLS = { 
+URLS = {
     # --- New Horizons ---
     # Critters
     "fish": "https://animalcrossing.fandom.com/wiki/Fish_(New_Horizons)",
@@ -100,7 +100,7 @@ def scrapeFish(key): # same logic as scrapeBugs
             "price": int(tableData[2]),
             "location": tr.findChildren("td")[3].text.strip('\n').strip(),
             "shadowSize": tableData[4], # specific to fish
-            "time": tr.findChildren("small")[0].text, 
+            "time": tr.findChildren("small")[0].text,
             "seasons-northern-hemisphere": {
                 "jan": avaiConverter(tableData[6]),
                 "feb": avaiConverter(tableData[7]),
@@ -230,7 +230,13 @@ def scrapeDIYEquipments(key):
     url = URLS.get(key)
     response = (requests.get(url, timeout=5))
     soup = BeautifulSoup(response.content, "html.parser")
+
+    # Most, but not all, pages have a table with the "sortable" class.
     table = soup.find_all("table", {"class": "sortable"})
+    if not table:
+        # Some pages have a table with a "roundy" class so try that if the previoud failed.
+        table = soup.find_all("table", {"class": "roundy"})
+
     itemList = []
     for item in table[0].find_all("tr")[1:]:
         itemInfo = []
@@ -246,25 +252,33 @@ def scrapeDIYEquipments(key):
             itemObject["imageLink"] = item.findChildren("a")[1]['href']
         except AttributeError:
             itemObject["imageLink"] = None
+
         try:
             itemObject["materials"] = separateByBr(item.findChildren("td")[2]).strip("\n").split(",")
         except AttributeError:
             itemObject["materials"] = []
+
+        # Trim whitespace from each material name.
+        itemObject["materials"] = list(map(str.strip, itemObject["materials"]))
+
         try:
             itemObject["materialsImageLink"] = getImageLinks(item.findChildren("td")[2].find_all("img"))
         except AttributeError:
             itemObject["materialsImageLink"] = []
+
         try:
-            itemObject["sizeLink"] = itemInfo[3].findChildren("a")[0]['href']
+            itemObject["sizeLink"] = item.find_all("td")[3].findChildren("a")[0]['href']
         except AttributeError:
             itemObject["sizeLink"] = None
+
         try:
-            itemObject["obtainedFrom"] = itemInfo[4].text
+            itemObject["obtainedFrom"] = str.strip(item.find_all("td")[4].text)
         except AttributeError:
             itemObject["obtainedFrom"] = None
+
         try:
             itemObject["price"] = int(itemInfo[5].strip().replace(",", ""))
-        except: 
+        except:
             itemObject["price"] = None
         itemList.append(itemObject)
     dumpData(itemList, key)
@@ -298,20 +312,20 @@ def scrapeDIYWalls(key):
 
 
 if __name__ == "__main__":
-    # -- Critters -- 
-    # scrapeBugs("bugs")
-    # scrapeFish("fish")
-    # scrapeFossils("fossils")
+    # -- Critters --
+    scrapeBugs("bugs")
+    scrapeFish("fish")
+    scrapeFossils("fossils")
 
-    # -- Characters -- 
-    # scrapeVillagers("villagers")
+    # -- Characters --
+    scrapeVillagers("villagers")
 
-    # -- DIY Recipes -- 
+    # -- DIY Recipes --
     scrapeDIYTools("tools")
-    # scrapeDIYEquipments("housewares")
-    # scrapeDIYEquipments("equipments")
-    # scrapeDIYEquipments("miscellaneous")
-    # scrapeDIYEquipments("others")
-    # scrapeDIYWalls("wallMounteds")
-    # scrapeDIYWalls("wallpaperRugsFloorings")
+    scrapeDIYEquipments("housewares")
+    scrapeDIYEquipments("equipments")
+    scrapeDIYEquipments("miscellaneous")
+    scrapeDIYEquipments("others")
+    scrapeDIYWalls("wallMounteds")
+    scrapeDIYWalls("wallpaperRugsFloorings")
     pass
